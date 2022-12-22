@@ -37,7 +37,7 @@ jobs:
       - env: 
           credentials: ${{ secrets.VISUAL_STUDIO }}
         run: |
-        echo ${{ secrets.VISUAL_STUDIO }}
+          echo ${{ secrets.VISUAL_STUDIO }}
           npm install -g vsce
           rm -rf node_modules
           npm install
