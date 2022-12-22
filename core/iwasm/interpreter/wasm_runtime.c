@@ -1948,6 +1948,9 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         os_mutex_destroy(&module_inst->e->mem_lock);
 #endif
 
+    if (module_inst->e->c_api_func_imports)
+        wasm_runtime_free(module_inst->e->c_api_func_imports);
+
     wasm_runtime_free(module_inst);
 }
 
@@ -2781,7 +2784,11 @@ wasm_interp_dump_call_stack(struct WASMExecEnv *exec_env, bool print, char *buf,
 void
 jit_set_exception_with_id(WASMModuleInstance *module_inst, uint32 id)
 {
-    wasm_set_exception_with_id(module_inst, id);
+    if (id != EXCE_ALREADY_THROWN)
+        wasm_set_exception_with_id(module_inst, id);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    wasm_runtime_access_exce_check_guard_page();
+#endif
 }
 
 bool
@@ -2789,8 +2796,15 @@ jit_check_app_addr_and_convert(WASMModuleInstance *module_inst, bool is_str,
                                uint32 app_buf_addr, uint32 app_buf_size,
                                void **p_native_addr)
 {
-    return wasm_check_app_addr_and_convert(module_inst, is_str, app_buf_addr,
-                                           app_buf_size, p_native_addr);
+    bool ret = wasm_check_app_addr_and_convert(
+        module_inst, is_str, app_buf_addr, app_buf_size, p_native_addr);
+
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+
+    return ret;
 }
 #endif /* end of WASM_ENABLE_FAST_JIT != 0 || WASM_ENABLE_JIT != 0 \
           || WASM_ENABLE_WAMR_COMPILER != 0 */
@@ -2811,12 +2825,20 @@ bool
 llvm_jit_call_indirect(WASMExecEnv *exec_env, uint32 tbl_idx, uint32 elem_idx,
                        uint32 argc, uint32 *argv)
 {
+    bool ret;
+
 #if WASM_ENABLE_JIT != 0
     if (Wasm_Module_AoT == exec_env->module_inst->module_type) {
         return aot_call_indirect(exec_env, tbl_idx, elem_idx, argc, argv);
     }
 #endif
-    return call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, false, 0);
+
+    ret = call_indirect(exec_env, tbl_idx, elem_idx, argc, argv, false, 0);
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+    return ret;
 }
 
 bool
@@ -2830,9 +2852,11 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     WASMType *func_type;
     void *func_ptr;
     WASMFunctionImport *import_func;
+    CApiFuncImport *c_api_func_import = NULL;
     const char *signature;
     void *attachment;
     char buf[96];
+    bool ret = false;
 
 #if WASM_ENABLE_JIT != 0
     if (Wasm_Module_AoT == exec_env->module_inst->module_type) {
@@ -2850,32 +2874,44 @@ llvm_jit_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     bh_assert(func_idx < module->import_function_count);
 
     import_func = &module->import_functions[func_idx].u.function;
+    if (import_func->call_conv_wasm_c_api) {
+        c_api_func_import = module_inst->e->c_api_func_imports + func_idx;
+        func_ptr = c_api_func_import->func_ptr_linked;
+    }
+
     if (!func_ptr) {
         snprintf(buf, sizeof(buf),
                  "failed to call unlinked import function (%s, %s)",
                  import_func->module_name, import_func->field_name);
         wasm_set_exception(module_inst, buf);
-        return false;
+        goto fail;
     }
 
     attachment = import_func->attachment;
     if (import_func->call_conv_wasm_c_api) {
-        return wasm_runtime_invoke_c_api_native(
+        ret = wasm_runtime_invoke_c_api_native(
             (WASMModuleInstanceCommon *)module_inst, func_ptr, func_type, argc,
-            argv, import_func->wasm_c_api_with_env, attachment);
+            argv, c_api_func_import->with_env_arg, c_api_func_import->env_arg);
     }
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native(exec_env, func_ptr, func_type,
-                                          signature, attachment, argv, argc,
-                                          argv);
+        ret =
+            wasm_runtime_invoke_native(exec_env, func_ptr, func_type, signature,
+                                       attachment, argv, argc, argv);
     }
     else {
         signature = import_func->signature;
-        return wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
-                                              signature, attachment, argv, argc,
-                                              argv);
+        ret = wasm_runtime_invoke_native_raw(exec_env, func_ptr, func_type,
+                                             signature, attachment, argv, argc,
+                                             argv);
     }
+
+fail:
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!ret)
+        wasm_runtime_access_exce_check_guard_page();
+#endif
+    return ret;
 }
 
 #if WASM_ENABLE_BULK_MEMORY != 0

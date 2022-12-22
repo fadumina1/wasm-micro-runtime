@@ -54,6 +54,7 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     char func_name[48];
     uint64 size;
     uint32 i, j = 0, param_count = (uint64)aot_func_type->param_count;
+    uint32 backend_thread_num, compile_thread_num;
 
     /* exec env as first parameter */
     param_count++;
@@ -119,7 +120,16 @@ aot_add_llvm_func(AOTCompContext *comp_ctx, LLVMModuleRef module,
     if (p_func_type)
         *p_func_type = func_type;
 
-    if (comp_ctx->is_jit_mode) {
+    backend_thread_num = WASM_ORC_JIT_BACKEND_THREAD_NUM;
+    compile_thread_num = WASM_ORC_JIT_COMPILE_THREAD_NUM;
+
+    /* Add the jit wrapper function with simple prototype, so that we
+       can easily call it to trigger its compilation and let LLVM JIT
+       compile the actual jit functions by adding them into the function
+       list in the PartitionFunction callback */
+    if (comp_ctx->is_jit_mode
+        && (func_index % (backend_thread_num * compile_thread_num)
+            < backend_thread_num)) {
         func_type_wrapper = LLVMFunctionType(VOID_TYPE, NULL, 0, false);
         if (!func_type_wrapper) {
             aot_set_last_error("create LLVM function type failed.");
@@ -2219,11 +2229,11 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
 
     if (idx < 0) {
         if (comp_ctx->pointer_size == sizeof(uint32)
-            && !strncmp(symbol, "f64#", 4)) {
+            && (!strncmp(symbol, "f64#", 4) || !strncmp(symbol, "i64#", 4))) {
             idx = bh_list_length(&comp_ctx->native_symbols);
             /* Add 4 bytes padding on 32-bit target to make sure that
                the f64 const is stored on 8-byte aligned address */
-            if ((idx & 1) && !strncmp(comp_ctx->target_arch, "i386", 4)) {
+            if (idx & 1) {
                 if (!insert_native_symbol(comp_ctx, "__ignore", idx)) {
                     return -1;
                 }
@@ -2236,7 +2246,7 @@ aot_get_native_symbol_index(AOTCompContext *comp_ctx, const char *symbol)
         }
 
         if (comp_ctx->pointer_size == sizeof(uint32)
-            && !strncmp(symbol, "f64#", 4)) {
+            && (!strncmp(symbol, "f64#", 4) || !strncmp(symbol, "i64#", 4))) {
             /* f64 const occupies 2 pointer slots on 32-bit target */
             if (!insert_native_symbol(comp_ctx, "__ignore", idx + 1)) {
                 return -1;

@@ -92,6 +92,10 @@ if (MSVC)
   target_compile_definitions(vmlib PRIVATE WASM_API_EXTERN=)
 endif()
 target_link_libraries (vmlib ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
+
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(vmlib boringssl_crypto)
+endif ()
 ################################################
 
 ################  application related  ################
@@ -161,7 +165,7 @@ foreach(EX ${EXAMPLES})
   add_executable(${EX} ${SRC} ${UNCOMMON_SHARED_SOURCE} ${MM_UTIL})
   set_target_properties (${EX} PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_include_directories(${EX} PRIVATE ${UNCOMMON_SHARED_DIR})
-  target_link_libraries(${EX} vmlib -lpthread -lm)
+  target_link_libraries(${EX} vmlib)
   if (MSVC)
     target_compile_definitions(${EX} PRIVATE WASM_API_EXTERN=)
   endif()
@@ -199,11 +203,16 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
   if(VALGRIND)
     foreach(EX ${EXAMPLES})
-      add_custom_target(${EX}_LEAK_TEST
-        COMMAND ${VALGRIND} --tool=memcheck --leak-check=yes ./${EX}
+      add_custom_command(
+        OUTPUT ${EX}_leak_check.report
         DEPENDS ${EX} ${EX}_WASM
-        VERBATIM
-        COMMENT "run a leak check on ${EX}"
+        COMMAND ${VALGRIND} --tool=memcheck --leak-check=full -- ./${EX} > ${EX}_leak_check.report 2>&1
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      )
+      add_custom_target(${EX}_LEAK_TEST ALL
+        DEPENDS ${EX}_leak_check.report
+        COMMAND grep "All heap blocks were freed -- no leaks are possible" ${EX}_leak_check.report
+        COMMENT "Please read ${EX}_leak_check.report when meeting Error"
       )
     endforeach()
   endif (VALGRIND)

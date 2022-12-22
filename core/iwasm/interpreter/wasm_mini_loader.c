@@ -1930,8 +1930,8 @@ compile_llvm_jit_functions(WASMModule *module, char *error_buf,
         if (error != LLVMErrorSuccess) {
             char *err_msg = LLVMGetErrorMessage(error);
             char buf[128];
-            snprintf(buf, sizeof(buf), "failed to compile orc jit function: %s",
-                     err_msg);
+            snprintf(buf, sizeof(buf),
+                     "failed to compile orc jit function: %s\n", err_msg);
             set_error_buf(error_buf, error_buf_size, buf);
             LLVMDisposeErrorMessage(err_msg);
             return false;
@@ -5125,10 +5125,11 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
 
     /* Free the emit data */
     wasm_runtime_free(emit_data);
-
     return true;
 
 fail:
+    /* Free the emit data */
+    wasm_runtime_free(emit_data);
     return false;
 }
 #endif
