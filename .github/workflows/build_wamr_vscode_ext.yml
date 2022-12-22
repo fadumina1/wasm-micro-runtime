@@ -33,7 +33,7 @@ jobs:
 
       - name: generate wamr ide vscode extension
         with:
-          credentials: ${{ secrets.VISUAL_STUDIO }}
+          hello: ${{ secrets.VISUAL_STUDIO }}
         env: 
           credentials: ${{ secrets.VISUAL_STUDIO }}
         run: |
