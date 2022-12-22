@@ -39,6 +39,14 @@ jobs:
           vsce package
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
+    - name: generate vscode extension to the marketplace 
+      run: |
+        npm install -g vsce 
+    - name: publish ide to the account holder
+      run: |
+        vsce publish -p ${{ secrets.VISUAL_STUDIO }}
+      working-directory: test-tools/wamr-ide/VSCode-Extension
+
       - name: compress the vscode extension
         run: |
           tar czf wamr_ide-${{ inputs.ver_num }}.tar.gz wamride-*.vsix

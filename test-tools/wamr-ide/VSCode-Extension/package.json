@@ -1,8 +1,8 @@
 {
     "name": "wamride",
-    "publisher": "wamr",
+    "publisher": "Fadumina",
     "repository": {
-        "url": "https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/test-tools/wamr-ide"
+        "url": "https://github.com/fadss/wasm-micro-runtime/tree/main/test-tools/wamr-ide"
     },
     "displayName": "WAMR-IDE",
     "description": "An Integrated Development Environment for WASM",
