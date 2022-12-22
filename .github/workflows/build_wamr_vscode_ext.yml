@@ -37,12 +37,8 @@ jobs:
           rm -rf node_modules
           npm install
           vsce package
-        working-directory: test-tools/wamr-ide/VSCode-Extension
-
-      - name: publish ide to the account holder
-        run: |
           vsce publish -p ${{ secrets.VISUAL_STUDIO }}
-         working-directory: test-tools/wamr-ide/VSCode-Extension
+        working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: compress the vscode extension
         run: |
