@@ -34,7 +34,7 @@ jobs:
       - name: generate wamr ide vscode extension
         with:
           credentials: ${{ secrets.VISUAL_STUDIO }}
-      - env: 
+        env: 
           credentials: ${{ secrets.VISUAL_STUDIO }}
         run: |
           echo ${{ secrets.VISUAL_STUDIO }}
@@ -43,7 +43,7 @@ jobs:
           npm install
           vsce package
           vsce publish -p ${{ secrets.VISUAL_STUDIO }}
-      working-directory: test-tools/wamr-ide/VSCode-Extension
+        working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: compress the vscode extension
         run: |
