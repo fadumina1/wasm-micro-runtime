@@ -32,8 +32,6 @@ jobs:
         working-directory: test-tools/wamr-ide/VSCode-Extension
 
       - name: generate wamr ide vscode extension
-        with:
-          hello: ${{ secrets.VISUAL_STUDIO }}
         env: 
           credentials: ${{ secrets.VISUAL_STUDIO }}
         run: |
