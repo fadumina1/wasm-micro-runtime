@@ -1,6 +1,6 @@
 {
     "name": "wamride",
-    "publisher": "Fadumina",
+    "publisher": "wamr-vs-marketplace",
     "repository": {
         "url": "https://github.com/fadss/wasm-micro-runtime/tree/main/test-tools/wamr-ide"
     },
