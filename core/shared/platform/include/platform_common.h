@@ -37,6 +37,13 @@ extern "C" {
 #define BH_TIME_T_MAX LONG_MAX
 #endif
 
+typedef enum {
+    BH_CLOCK_ID_REALTIME,
+    BH_CLOCK_ID_MONOTONIC,
+    BH_CLOCK_ID_PROCESS_CPUTIME_ID,
+    BH_CLOCK_ID_THREAD_CPUTIME_ID
+} bh_clock_id_t;
+
 #if defined(_MSC_BUILD)
 #if defined(COMPILING_WASM_RUNTIME_API)
 __declspec(dllexport) void *BH_MALLOC(unsigned int size);
@@ -117,6 +124,26 @@ typedef void *(*thread_start_routine_t)(void *);
     give a fake definition to make the compiler happy */
 #define bh_socket_t int
 #endif
+
+/**
+ * Get a resolution of the clock
+ *
+ * @param clock_id clock identifier
+ * @param resolution output variable to store the clock resolution
+ * @return BHT_OK if success; otherwise, BHT_ERROR
+ */
+int
+os_clock_res_get(bh_clock_id_t clock_id, uint64 *resolution);
+
+/**
+ * Get a current time of the clock
+ *
+ * @param clock_id clock identifier
+ * @param time output variable to store the clock time
+ * @return BHT_OK if success; otherwise, BHT_ERROR
+ */
+int
+os_clock_time_get(bh_clock_id_t clock_id, uint64 precision, uint64 *time);
 
 /* Format specifiers macros in case
     they are not provided by compiler */
